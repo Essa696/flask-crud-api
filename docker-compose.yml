@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: flask-backend
+    ports:
+     - "500:5000"
+    volumes:
+      - db-crud-app:/var/lib/sql
+    
+  frontend:
+    image: nginx:latest
+    container_name: frontend
+    ports:
+      - "8000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    depends_on:
+      - backend
+
+volumes:
+ db-crud-app:
