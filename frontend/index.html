@@ -94,27 +94,28 @@
 
         // Render books in the table
         function renderBooks(data) {
-            const table = document.getElementById('bookTable');
-            table.innerHTML = `
-                <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Author</th>
-                    <th>Actions</th>
-                </tr>`;
-            data.forEach(book => {
-                table.innerHTML += `
-                    <tr>
-                        <td>${book.id}</td>
-                        <td>${book.title}</td>
-                        <td>${book.author}</td>
-                        <td>
-                            <button onclick="updateBook('${book.id}')">Update</button>
-                            <button onclick="deleteBook('${book.id}')">Delete</button>
-                        </td>
-                    </tr>`;
-            });
-        }
+    const table = document.getElementById('bookTable');
+    table.innerHTML = `
+        <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Actions</th>
+        </tr>`;
+    data.forEach(book => {
+        table.innerHTML += `
+            <tr>
+                <td>${book.id.slice(-6)}</td> <!-- Shorten the ID -->
+                <td>${book.title}</td>
+                <td>${book.author}</td>
+                <td>
+                    <button onclick="updateBook('${book.id}')">Update</button>
+                    <button onclick="deleteBook('${book.id}')">Delete</button>
+                </td>
+            </tr>`;
+        });
+        
+        }   
 
         // Initial fetch
         fetchBooks();
