@@ -15,12 +15,20 @@
 <body>
     <h1>Books Management System</h1>
 
+    <!-- Input Section -->
     <div>
         <input type="text" id="title" placeholder="Book Title">
         <input type="text" id="author" placeholder="Author Name">
         <button onclick="addBook()">Add Book</button>
     </div>
 
+    <!-- Search Section -->
+    <div>
+        <input type="text" id="search" placeholder="Search books...">
+        <button onclick="searchBooks()">Search</button>
+    </div>
+
+    <!-- Book List Table -->
     <h2>Book List</h2>
     <table id="bookTable">
         <tr>
@@ -31,6 +39,7 @@
         </tr>
     </table>
 
+    <!-- JavaScript -->
     <script>
         const apiBaseUrl = "http://localhost:500/books";
 
@@ -38,33 +47,17 @@
         function fetchBooks() {
             fetch(apiBaseUrl)
                 .then(response => response.json())
-                .then(data => {
-                    const table = document.getElementById('bookTable');
-                    table.innerHTML = `
-                        <tr>
-                            <th>ID</th>
-                            <th>Title</th>
-                            <th>Author</th>
-                            <th>Actions</th>
-                        </tr>`;
-                    data.forEach(book => {
-                        table.innerHTML += `
-                            <tr>
-                                <td>${book.id}</td>
-                                <td>${book.title}</td>
-                                <td>${book.author}</td>
-                                <td>
-                                    <button onclick="deleteBook(${book.id})">Delete</button>
-                                </td>
-                            </tr>`;
-                    });
-                });
+                .then(data => renderBooks(data));
         }
 
         // Add a new book
         function addBook() {
             const title = document.getElementById('title').value;
             const author = document.getElementById('author').value;
+            if (!title || !author) {
+                alert("Title and Author are required!");
+                return;
+            }
             fetch(apiBaseUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -76,6 +69,51 @@
         function deleteBook(id) {
             fetch(`${apiBaseUrl}/${id}`, { method: 'DELETE' })
                 .then(() => fetchBooks());
+        }
+
+        // Update a book
+        function updateBook(id) {
+            const title = prompt("Enter new title:");
+            const author = prompt("Enter new author:");
+            if (title && author) {
+                fetch(`${apiBaseUrl}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, author })
+                }).then(() => fetchBooks());
+            }
+        }
+
+        // Search for books
+        function searchBooks() {
+            const query = document.getElementById('search').value;
+            fetch(`${apiBaseUrl}/search?query=${query}`)
+                .then(response => response.json())
+                .then(data => renderBooks(data));
+        }
+
+        // Render books in the table
+        function renderBooks(data) {
+            const table = document.getElementById('bookTable');
+            table.innerHTML = `
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Actions</th>
+                </tr>`;
+            data.forEach(book => {
+                table.innerHTML += `
+                    <tr>
+                        <td>${book.id}</td>
+                        <td>${book.title}</td>
+                        <td>${book.author}</td>
+                        <td>
+                            <button onclick="updateBook('${book.id}')">Update</button>
+                            <button onclick="deleteBook('${book.id}')">Delete</button>
+                        </td>
+                    </tr>`;
+            });
         }
 
         // Initial fetch

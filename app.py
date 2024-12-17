@@ -1,58 +1,73 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # Import CORS
-import sqlite3
+from flask_cors import CORS
+from pymongo import MongoClient
+from bson import ObjectId
+import os
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS
-DATABASE = 'books.db'
+CORS(app)
 
-# Initialize the database
-def init_db():
-    with sqlite3.connect(DATABASE) as conn:
-        conn.execute('''CREATE TABLE IF NOT EXISTS books (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            title TEXT NOT NULL,
-                            author TEXT NOT NULL
-                        )''')
-        
-@app.route('/')
-def home():
-    return "Welcome to the Flask CRUD API! Use the /books endpoint."        
+# MongoDB Configuration
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/booksdb")
+client = MongoClient(MONGO_URI)
+db = client.get_database("booksdb")
+books_collection = db.get_collection("books")
 
+# Helper function to format MongoDB document
+def format_book(book):
+    return {
+        "id": str(book["_id"]),
+        "title": book["title"],
+        "author": book["author"]
+    }
+
+# Route to get all books
 @app.route('/books', methods=['GET'])
 def get_books():
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM books")
-        books = [{"id": row[0], "title": row[1], "author": row[2]} for row in cursor.fetchall()]
-    return jsonify(books)
+    books = books_collection.find()
+    return jsonify([format_book(book) for book in books]), 200
 
+# Route to add a new book
 @app.route('/books', methods=['POST'])
 def add_book():
     data = request.json
-    title = data.get('title')
-    author = data.get('author')
-    if not title or not author:
+    if not data.get("title") or not data.get("author"):
         return jsonify({"error": "Title and Author are required"}), 400
+    new_book = {"title": data["title"], "author": data["author"]}
+    result = books_collection.insert_one(new_book)
+    return jsonify(format_book(books_collection.find_one({"_id": result.inserted_id}))), 201
 
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO books (title, author) VALUES (?, ?)", (title, author))
-        conn.commit()
-        book_id = cursor.lastrowid
+# Route to update a book
+@app.route('/books/<string:book_id>', methods=['PUT'])
+def update_book(book_id):
+    data = request.json
+    if not data.get("title") or not data.get("author"):
+        return jsonify({"error": "Title and Author are required"}), 400
+    updated_book = {"title": data["title"], "author": data["author"]}
+    result = books_collection.update_one({"_id": ObjectId(book_id)}, {"$set": updated_book})
+    if result.matched_count == 0:
+        return jsonify({"error": "Book not found"}), 404
+    return jsonify({"message": "Book updated"}), 200
 
-    return jsonify({"id": book_id, "title": title, "author": author}), 201
-
-@app.route('/books/<int:book_id>', methods=['DELETE'])
+# Route to delete a book
+@app.route('/books/<string:book_id>', methods=['DELETE'])
 def delete_book(book_id):
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
-        conn.commit()
-        if cursor.rowcount == 0:
-            return jsonify({"error": "Book not found"}), 404
+    result = books_collection.delete_one({"_id": ObjectId(book_id)})
+    if result.deleted_count == 0:
+        return jsonify({"error": "Book not found"}), 404
     return jsonify({"message": "Book deleted"}), 200
 
+# Route to search for books
+@app.route('/books/search', methods=['GET'])
+def search_books():
+    query = request.args.get("query", "")
+    books = books_collection.find({
+        "$or": [
+            {"title": {"$regex": query, "$options": "i"}},
+            {"author": {"$regex": query, "$options": "i"}}
+        ]
+    })
+    return jsonify([format_book(book) for book in books]), 200
+
 if __name__ == "__main__":
-    init_db()
     app.run(host="0.0.0.0", port=5000)
